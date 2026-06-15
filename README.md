@@ -20,6 +20,23 @@ npm run dev
 npm run build
 ```
 
+## Generate QR Codes
+
+Use any public base URL:
+
+```bash
+npm run qr:generate -- https://your-public-url
+```
+
+Generated files land in:
+
+- `qr-codes/`
+
+This command rewrites:
+
+- all QR PNG files
+- `qr-codes/README.md`
+
 ## Project Structure
 
 ```text
@@ -119,6 +136,8 @@ Shared route metadata lives in:
 - `src/data/game-config.ts`
 
 If a user opens a puzzle directly without its QR parameter, the page shows a QR-required message and returns them to the map.
+
+For public office play, point QR codes at a public host or tunnel URL, not a workspace-protected URL.
 
 ## Secret Codes
 

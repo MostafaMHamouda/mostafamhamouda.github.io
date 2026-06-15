@@ -8,6 +8,7 @@ import { buildInitialTeamState, saveTeamState } from '../lib/team-state';
 
 export const TeamRegisterPage = () => {
   const navigate = useNavigate();
+  const livingMapSrc = `${import.meta.env.BASE_URL}assets/living-map-reference.png`;
   const [form, setForm] = useState({
     teamName: '',
     membersCount: '4',
@@ -32,13 +33,24 @@ export const TeamRegisterPage = () => {
 
   return (
     <Layout className="justify-center">
-      <section className="glass-panel rounded-[2rem] p-6">
-        <QuestHeader
-          eyebrow="Team Registry"
-          title="Gather Your Crew"
-          subtitle="Register your trail team before the first QR unlock."
-        />
-        <form className="mt-8 space-y-4" onSubmit={onSubmit}>
+      <section className="glass-panel overflow-hidden rounded-[2rem] border border-amber-200/15">
+        <div className="relative">
+          <img
+            alt="Living Map registration panel"
+            className="h-40 w-full object-cover object-center opacity-55"
+            src={livingMapSrc}
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,15,0.08),rgba(5,7,15,0.82))]" />
+          <div className="absolute inset-x-4 bottom-4 rounded-[1.5rem] border border-white/10 bg-slate-950/60 p-4 backdrop-blur-xl">
+            <QuestHeader
+              eyebrow="Team Registry"
+              title="Gather Your Crew"
+              subtitle="Register your trail team before the first QR unlock."
+            />
+          </div>
+        </div>
+
+        <form className="space-y-4 p-6" onSubmit={onSubmit}>
           <label className="block">
             <span className="mb-2 block text-sm text-slate-200">Team Name</span>
             <CodeInput

@@ -132,10 +132,10 @@ export const MapPage = () => {
         <div className="relative aspect-[1/1.08] w-full overflow-hidden rounded-[1.5rem] border border-white/10 bg-stars md:aspect-[16/10]">
           <img
             alt="The full Living Map reference"
-            className="absolute inset-0 h-full w-full object-cover opacity-[0.17] blur-[1px]"
+            className="absolute inset-0 h-full w-full object-cover opacity-[0.26] blur-[0.5px]"
             src={livingMapRefSrc}
           />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,240,197,0.14),transparent_15%),linear-gradient(180deg,rgba(5,7,15,0.18),rgba(5,7,15,0.56))]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,240,197,0.16),transparent_16%),linear-gradient(180deg,rgba(5,7,15,0.08),rgba(5,7,15,0.52))]" />
 
           <div className="absolute inset-[18%] rounded-full border border-white/8 bg-slate-950/18 blur-3xl" />
 
@@ -164,7 +164,6 @@ export const MapPage = () => {
             const selected = selectedWorldSlug === world.slug;
             const highlighted = highlightedWorld === world.slug;
             const pieceSrc = `${import.meta.env.BASE_URL}assets/${piece.image}`;
-            const titlePrimary = world.title.replace(' World', '');
 
             return (
               <button
@@ -217,25 +216,13 @@ export const MapPage = () => {
                         <p className="text-[0.62rem] uppercase tracking-[0.22em] text-slate-300/72 md:text-[0.7rem]">
                           {world.guardian}
                         </p>
-                        <h3 className="mt-1 text-sm font-semibold leading-4 text-white md:text-base md:leading-5">
-                          <span
-                            className={cn(
-                              'block',
-                              world.slug === 'entrepreneurship'
-                                ? 'text-[0.74rem] leading-4 tracking-[-0.02em] md:text-base md:tracking-normal'
-                                : '',
-                            )}
-                          >
-                            {titlePrimary}
-                          </span>
-                          <span
-                            className={cn(
-                              'mt-1 block text-[0.9rem] md:text-base',
-                              world.slug === 'entrepreneurship' ? 'text-[0.82rem] md:text-base' : '',
-                            )}
-                          >
-                            World
-                          </span>
+                        <h3
+                          className={cn(
+                            'mt-1 text-[0.86rem] font-semibold leading-4 text-white md:text-base md:leading-5',
+                            world.slug === 'entrepreneurship' ? 'text-[0.72rem] md:text-[0.95rem]' : '',
+                          )}
+                        >
+                          {world.title}
                         </h3>
                       </div>
                     </div>

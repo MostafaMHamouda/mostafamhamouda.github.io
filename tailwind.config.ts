@@ -98,7 +98,7 @@ export default {
         },
       },
       fontFamily: {
-        display: ['Trebuchet MS', 'Segoe UI', 'sans-serif'],
+        display: ['Georgia', 'Times New Roman', 'serif'],
         body: ['Segoe UI', 'Tahoma', 'sans-serif'],
       },
     },

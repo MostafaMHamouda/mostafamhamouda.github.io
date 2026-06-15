@@ -36,7 +36,8 @@ export const QrAccessGuard = ({ children, qrKey, title }: QrAccessGuardProps) =>
             subtitle="This stage opens only from its printed QR code."
           />
           <div className="mt-6 rounded-2xl border border-amber-200/15 bg-amber-200/10 p-4 text-base leading-7 text-slate-100/86">
-            امسح رمز QR الخاص بهذه المرحلة للدخول. شاشة الخريطة للمتابعة فقط وليست للدخول المباشر إلى التحدي.
+            امسح رمز QR الخاص بهذه المرحلة للدخول. شاشة الخريطة مخصصة للمتابعة فقط، والدخول إلى هذا
+            التحدي يتم من الرمز الخاص به.
           </div>
           <div className="mt-6">
             <GlowingButton

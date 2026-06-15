@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "build:web": "tsc -b && vite build --outDir .site-build/dist/client",
     "build:site": "node scripts/build-sites.mjs",
-    "qr:generate": "node scripts/generate-qrs.mjs"
+    "qr:generate": "node scripts/generate-qrs.mjs",
+    "public:tunnel": "powershell -ExecutionPolicy Bypass -File scripts/start-public-tunnel.ps1"
   },
   "dependencies": {
     "clsx": "^2.1.1",

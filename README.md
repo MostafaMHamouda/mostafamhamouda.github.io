@@ -37,6 +37,28 @@ This command rewrites:
 - all QR PNG files
 - `qr-codes/README.md`
 
+## Public No-Login Link
+
+Quick public tunnel:
+
+```bash
+npm run public:tunnel
+```
+
+What it does:
+
+- builds the app
+- starts the local static preview server on `4173`
+- opens a public no-login tunnel
+- prints the live public URL
+- prints a Serveo registration link for locking a fixed subdomain later
+
+After the tunnel starts:
+
+```bash
+npm run qr:generate -- https://your-live-public-url
+```
+
 ## Project Structure
 
 ```text

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Learnova Lost Map</title>
+    <script>
+      (function (location) {
+        const search = location.search
+          ? `&${location.search.slice(1).replace(/&/g, '~and~')}`
+          : '';
+
+        location.replace(
+          `${location.protocol}//${location.host}/?/${location.pathname
+            .slice(1)
+            .replace(/&/g, '~and~')}${search}${location.hash}`,
+        );
+      })(window.location);
+    </script>
+  </head>
+  <body></body>
+</html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Learnova Lost Map</title>
+    <script>
+      (function (location) {
+        if (location.search.startsWith('?/')) {
+          const decoded = location.search
+            .slice(2)
+            .split('&')
+            .map((segment, index) =>
+              index === 0 ? segment : `?${segment.replace(/~and~/g, '&')}`,
+            )
+            .join('');
+
+          window.history.replaceState(null, '', `/${decoded}${location.hash}`);
+        }
+      })(window.location);
+    </script>
+    <script type="module" crossorigin src="/assets/index-CjM041zW.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-y4K8EtAr.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+  </html>

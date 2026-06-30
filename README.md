@@ -1,6 +1,6 @@
 # The Learnova Lost Map
 
-Mobile-first QR quest built with React, TypeScript, Vite, Tailwind CSS, React Router, and `localStorage`.
+Multi-team QR onboarding quest built with React, TypeScript, Vite, Tailwind CSS, React Router, Supabase, and Supabase Realtime.
 
 ## Install
 
@@ -8,56 +8,64 @@ Mobile-first QR quest built with React, TypeScript, Vite, Tailwind CSS, React Ro
 npm install
 ```
 
-## Run
+## Environment Variables
+
+Create `.env` from `.env.example`.
+
+```bash
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_ADMIN_PIN=1907
+```
+
+If `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` is missing, the app shows a clear setup error instead of failing silently.
+
+## Supabase Setup
+
+1. Create a Supabase project.
+2. Copy your project URL and anon key into `.env`.
+3. Run the SQL in [supabase/schema.sql](/C:/Users/Mostafa%20Hamouda/Documents/Codex/learnova-lost-map/supabase/schema.sql).
+4. Confirm the tables exist:
+   - `teams`
+   - `team_completions`
+   - `team_events`
+   - `game_settings`
+5. Confirm Realtime is enabled for the tables you want to watch live.
+
+## Run Locally
 
 ```bash
 npm run dev
 ```
 
-## Build
+Production build:
 
 ```bash
 npm run build
 ```
 
-## Generate QR Codes
-
-Use any public base URL:
+Preview production build:
 
 ```bash
-npm run qr:generate -- https://your-public-url
+npm run preview
 ```
 
-Generated files land in:
+## How Registration Works
 
-- `qr-codes/`
+- Each device registers its own team from `/team-register`.
+- A new `teams` row is created in Supabase.
+- The device stores only `learnova_current_team_id` in `localStorage`.
+- Full game progress is loaded from Supabase after registration.
 
-This command rewrites:
+## How Multi-Team Sync Works
 
-- all QR PNG files
-- `qr-codes/README.md`
+- Player pages load the current team using `learnova_current_team_id`.
+- Team progress, score, hints, unlocks, final gate, and reveal state live in Supabase.
+- Admin pages subscribe to teams, events, and settings through Supabase Realtime.
+- Player map updates when admin changes a team manually.
 
-## Public No-Login Link
-
-Quick public tunnel:
-
-```bash
-npm run public:tunnel
-```
-
-What it does:
-
-- builds the app
-- starts the local static preview server on `4173`
-- opens a public no-login tunnel
-- prints the live public URL
-- prints a Serveo registration link for locking a fixed subdomain later
-
-After the tunnel starts:
-
-```bash
-npm run qr:generate -- https://your-live-public-url
-```
+Important:
+`localStorage` is now only used for the current team session and admin PIN session. It is not the source of truth for game progress.
 
 ## Project Structure
 
@@ -65,206 +73,125 @@ npm run qr:generate -- https://your-live-public-url
 learnova-lost-map/
 |- public/
 |  `- assets/
-|     `- living-map.png
+|- scripts/
 |- src/
-|  |- components/   Shared UI, animation, map, fog, bonus, and QR guards
-|  |- data/         Game config, QR access keys, world metadata
-|  |- hooks/        Shared state hooks
-|  |- lib/          localStorage helpers, clipboard helpers
-|  |- pages/        Route pages for world challenges, fog traps, bonuses, final gate, reveal, and admin
-|  |- types/        Shared TypeScript types
-|  |- index.css     Global styles
-|  |- main.tsx      App entry
-|  `- router.tsx    Router setup
-|- package.json
-|- tailwind.config.ts
-`- vite.config.ts
+|  |- components/
+|  |- data/
+|  |  |- gameConfig.ts
+|  |  `- qr-access.ts
+|  |- hooks/
+|  |  |- useCurrentTeam.ts
+|  |  `- useTeamCompletions.ts
+|  |- lib/
+|  |  |- supabase.ts
+|  |  `- teamSession.ts
+|  |- pages/
+|  |- services/
+|  |  `- gameService.ts
+|  `- types/
+|     `- game.ts
+`- supabase/
+   `- schema.sql
 ```
-
-## Animation System Overview
-
-The app uses lightweight CSS and React-state-driven animations only.
-
-Main animation areas:
-
-- `/map`
-  - animated Core of Learno
-  - fog state overlays
-  - energy streams from restored worlds to the Core
-  - one-time newly restored world animation
-- challenge success
-  - guardian code accepted flow
-  - stream restoration feedback
-- `/final-gate`
-  - Fourfold Spark convergence
-- `/reveal`
-  - staged restoration sequence
-
-Animation sources:
-
-- `tailwind.config.ts`
-- `src/components/CoreVisual.tsx`
-- `src/components/EnergyStream.tsx`
-- `src/components/FogOverlay.tsx`
-
-## Map Artwork
-
-The map artwork lives at:
-
-- `public/assets/living-map.png`
-
-To replace it:
-
-1. Keep the file name `living-map.png`
-2. Replace the image in `public/assets/`
-3. Rebuild the app
-
-If the artwork is missing or fails to load, the map falls back to the CSS-based digital layout automatically.
-
-## World Unlock Animation
-
-The app stores the most recent unlocked world in:
-
-- `learnova-lost-map.last-unlocked-world`
-
-Helpers live in:
-
-- `src/lib/team-state.ts`
-
-Used helpers:
-
-- `setLastUnlockedWorld()`
-- `getLastUnlockedWorld()`
-- `clearLastUnlockedWorld()`
-
-Flow:
-
-1. A challenge is completed with the correct guardian code.
-2. The world is unlocked in `TeamState`.
-3. `lastUnlockedWorld` is stored.
-4. When the team returns to `/map`, the restore animation plays once.
-5. The stored value is cleared.
-
-## QR Access
-
-Stage pages are protected by QR keys.
-
-QR access config lives in:
-
-- `src/data/qr-access.ts`
-
-Shared route metadata lives in:
-
-- `src/data/game-config.ts`
-
-If a user opens a puzzle directly without its QR parameter, the page shows a QR-required message and returns them to the map.
-
-For public office play, point QR codes at a public host or tunnel URL, not a workspace-protected URL.
-
-## Secret Codes
-
-Main world codes are defined in the challenge pages:
-
-- `src/pages/EducationChallengePage.tsx`
-- `src/pages/EntrepreneurshipChallengePage.tsx`
-- `src/pages/EntertainmentChallengePage.tsx`
-- `src/pages/ExplorationChallengePage.tsx`
-
-Look for the `correctCode` prop.
-
-## Edit Challenge Text
-
-Challenge copy is stored route-by-route in `src/pages/`.
-
-Worlds:
-
-- `EducationChallengePage.tsx`
-- `EntrepreneurshipChallengePage.tsx`
-- `EntertainmentChallengePage.tsx`
-- `ExplorationChallengePage.tsx`
-
-Fog traps:
-
-- `FogPerfectAnswerPage.tsx`
-- `FogShinyIdeaPage.tsx`
-- `FogEmptyPerformancePage.tsx`
-- `FogRushPathPage.tsx`
-- `FogLoneHeroPage.tsx`
-
-Bonus quests:
-
-- `BonusBadgeConstellationPage.tsx`
-- `BonusWonderLogPage.tsx`
-- `BonusPrototypeFlamePage.tsx`
-- `BonusAntiDimnessOathPage.tsx`
-
-Endgame:
-
-- `FinalGatePage.tsx`
-- `RevealPage.tsx`
 
 ## Admin Dashboard
 
-Admin route:
+Admin routes:
 
 - `/admin`
+- `/admin/live`
 
-Main facilitator features:
+Admin access uses a simple PIN gate.
 
-- overview cards for team, score, progress, hints, and final gate
-- world status controls
-- fog trap controls
-- bonus quest controls
-- score controls
-- reset / unlock / lock controls
-- export and import team state
-- QR route list with copy buttons
+- Enter the PIN from `VITE_ADMIN_PIN`.
+- After success, the app stores `learnova_admin_authenticated=true` locally.
+- Use `Logout Admin` to clear that session.
 
-Admin source:
+Admin tabs include:
 
-- `src/pages/AdminPage.tsx`
+- Overview
+- Teams
+- Team Details
+- Activity Log
+- Leaderboard
+- Game Controls
+- QR Routes
+- Data Export
 
-## Export / Import Team State
+## Live Screen
 
-Helpers live in:
+Open `/admin/live` after authenticating in `/admin`.
 
-- `src/lib/team-state.ts`
+This screen is meant for a projector or facilitator display and shows:
 
-Available helpers:
+- team cards
+- progress
+- scores
+- team status
 
-- `exportTeamState()`
-- `importTeamState(json)`
+It does not show secret codes or admin controls.
 
-Facilitator workflow:
+## Editing Secret Codes
 
-1. Open `/admin`
-2. Use `Export Team State JSON` before risky changes
-3. Use file import or pasted JSON import when restoring a saved session
+World codes live in [src/data/gameConfig.ts](/C:/Users/Mostafa%20Hamouda/Documents/Codex/learnova-lost-map/src/data/gameConfig.ts).
 
-## Manual Recovery During Live Play
+Look for `worldConfigs` and edit the `code` field for each world.
 
-If a QR code fails or a guardian code flow is interrupted:
+## Editing Challenge Text
 
-1. Open `/admin`
-2. Use `Unlock` for the specific world
-3. If you want the restore animation to still play, use `Mark Newly Unlocked`
-4. If the issue affects final progression, use `Complete Final Gate` or `Reset Final Gate`
+Challenge copy still lives in the page wrappers under [src/pages](/C:/Users/Mostafa%20Hamouda/Documents/Codex/learnova-lost-map/src/pages).
 
-Use these only as facilitator recovery tools.
+Main pages to edit:
+
+- [EducationChallengePage.tsx](/C:/Users/Mostafa%20Hamouda/Documents/Codex/learnova-lost-map/src/pages/EducationChallengePage.tsx)
+- [EntrepreneurshipChallengePage.tsx](/C:/Users/Mostafa%20Hamouda/Documents/Codex/learnova-lost-map/src/pages/EntrepreneurshipChallengePage.tsx)
+- [EntertainmentChallengePage.tsx](/C:/Users/Mostafa%20Hamouda/Documents/Codex/learnova-lost-map/src/pages/EntertainmentChallengePage.tsx)
+- [ExplorationChallengePage.tsx](/C:/Users/Mostafa%20Hamouda/Documents/Codex/learnova-lost-map/src/pages/ExplorationChallengePage.tsx)
+- fog trap pages in `src/pages/Fog*.tsx`
+- bonus pages in `src/pages/Bonus*.tsx`
+- [FinalGatePage.tsx](/C:/Users/Mostafa%20Hamouda/Documents/Codex/learnova-lost-map/src/pages/FinalGatePage.tsx)
+- [RevealPage.tsx](/C:/Users/Mostafa%20Hamouda/Documents/Codex/learnova-lost-map/src/pages/RevealPage.tsx)
+
+## Exports
+
+Admin export options include:
+
+- Teams CSV
+- Teams JSON
+- Events CSV
+- Full Game JSON
+
+Full export includes:
+
+- teams
+- completions
+- events
+- settings
+- exportedAt
 
 ## Reset Game Safely
 
-Recommended:
+Recommended flow:
 
-1. Export state from `/admin`
-2. Confirm reset
-3. Use `Reset Team`
+1. Open `/admin`.
+2. Export Full Game JSON.
+3. Go to `Game Controls`.
+4. Type `RESET LEARNOVA MAP`.
+5. Run `Reset All Game Data`.
 
-Direct browser reset:
+What stays after reset:
 
-- delete `learnova-lost-map.team-state` from `localStorage`
+- `game_settings`
+
+What gets removed:
+
+- teams
+- completions
+- events
 
 ## QR Routes To Print
+
+Routes with QR access values:
 
 - `/start`
 - `/education/mirror-of-misunderstanding?qr=fahim-blue`
@@ -281,17 +208,27 @@ Direct browser reset:
 - `/bonus/prototype-flame?qr=bonus-flame`
 - `/bonus/anti-dimness-oath?qr=bonus-bond`
 - `/final-gate?qr=final-spark`
+- `/reveal`
 
-## Acceptance Notes
+Generate QR files with a public base URL:
 
-This version supports:
+```bash
+npm run qr:generate -- https://your-public-url
+```
 
-- persistent team progress in `localStorage`
-- animated map states for locked and restored worlds
-- one-time world restore animation on return to `/map`
-- guardian-code world unlock flow
-- fog trap completion tracking
-- bonus scoring once per quest
-- Final Gate progression
-- cinematic Reveal flow
-- facilitator recovery tools in `/admin`
+## Public Access
+
+If you need quick external testing without workspace login:
+
+```bash
+npm run public:tunnel
+```
+
+After the tunnel starts, regenerate QR files against the public URL.
+
+## Notes
+
+- Realtime updates are powered by Supabase subscriptions.
+- Duplicate scoring is prevented through `team_completions` uniqueness.
+- Player pages stay mobile-first and QR-protected.
+- Admin PIN is MVP-only protection, not production-grade security.

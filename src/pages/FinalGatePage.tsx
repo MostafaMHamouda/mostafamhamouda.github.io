@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { CoreVisual } from '../components/CoreVisual';
 import { GlowingButton } from '../components/GlowingButton';
 import { Layout } from '../components/Layout';
 import { QuestHeader } from '../components/QuestHeader';
 import { ScoreBadge } from '../components/ScoreBadge';
-import { getTeamState, isAllWorldsUnlocked, saveTeamState, setFinalGateCompleted } from '../lib/team-state';
+import { isAllWorldsUnlocked } from '../data/gameConfig';
+import { useCurrentTeam } from '../hooks/useCurrentTeam';
+import { completeFinalGate, logTeamEvent } from '../services/gameService';
 
 const options = [
   { key: 'A', text: 'Speed and ready-made answers.' },
@@ -33,37 +35,66 @@ const worldPieces = [
 
 export const FinalGatePage = () => {
   const navigate = useNavigate();
-  const [teamState, setTeamState] = useState(() => getTeamState());
+  const { team, teamId, loading, error, refreshTeam } = useCurrentTeam();
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [sparkActive, setSparkActive] = useState(Boolean(getTeamState()?.finalGateCompleted));
+  const [sparkActive, setSparkActive] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  if (!teamState) return null;
+  useEffect(() => {
+    setSparkActive(Boolean(team?.final_gate_completed));
+  }, [team?.final_gate_completed]);
 
-  const allWorldsUnlocked = isAllWorldsUnlocked();
+  if (!teamId) return <Navigate to="/team-register" replace />;
 
-  const onSubmit = () => {
-    if (!selectedOption || teamState.finalGateCompleted) return;
+  if (loading) {
+    return (
+      <Layout className="justify-center gap-5 py-5">
+        <section className="glass-panel rounded-[2rem] p-6 text-base text-slate-100/86">
+          Loading your team data...
+        </section>
+      </Layout>
+    );
+  }
+
+  if (error || !team) {
+    return (
+      <Layout className="justify-center gap-5 py-5">
+        <section className="glass-panel rounded-[2rem] p-6">
+          <QuestHeader eyebrow="Endgame" title="Final Gate" subtitle={error ?? 'Team session was not found.'} />
+        </section>
+      </Layout>
+    );
+  }
+
+  const allWorldsUnlocked = isAllWorldsUnlocked(team);
+
+  const onSubmit = async () => {
+    if (!selectedOption || team.final_gate_completed) return;
 
     if (selectedOption !== 'C') {
       setFeedback('Fog is still listening. Think about what connected the four worlds.');
       return;
     }
 
-    const latestState = getTeamState();
-    if (!latestState) return;
-
-    const nextState = {
-      ...latestState,
-      finalGateCompleted: true,
-      score: latestState.finalGateCompleted ? latestState.score : latestState.score + 4,
-    };
-
-    saveTeamState(nextState);
-    setFinalGateCompleted(true);
-    setTeamState(nextState);
-    setFeedback(null);
-    setSparkActive(true);
+    setSubmitting(true);
+    try {
+      const result = await completeFinalGate(team.id);
+      if (!result.alreadyCompleted) {
+        await logTeamEvent(team.id, 'final_gate_completed', 'Final Gate completed', 4);
+      }
+      await refreshTeam();
+      setFeedback(null);
+      setSparkActive(true);
+    } catch (nextError) {
+      setFeedback(
+        nextError instanceof Error
+          ? nextError.message
+          : 'Connection issue. Please try again or contact the facilitator.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -75,7 +106,7 @@ export const FinalGatePage = () => {
             title="Final Gate: The Fourfold Spark"
             subtitle="Choose what truly restores the Core of Learno."
           />
-          <ScoreBadge score={teamState.score} />
+          <ScoreBadge score={team.score} />
         </div>
       </section>
 
@@ -99,7 +130,7 @@ export const FinalGatePage = () => {
               {options.map((option) => {
                 const isSelected = selectedOption === option.key;
                 const isCorrect = option.key === 'C';
-                const showCorrect = teamState.finalGateCompleted && isCorrect;
+                const showCorrect = team.final_gate_completed && isCorrect;
 
                 return (
                   <button
@@ -110,8 +141,8 @@ export const FinalGatePage = () => {
                         : isSelected
                           ? 'border-sky-300/40 bg-sky-300/12 text-white shadow-glow-blue'
                           : 'border-white/10 bg-slate-950/35 text-slate-200 hover:bg-white/5'
-                    } ${teamState.finalGateCompleted ? 'pointer-events-none' : ''}`}
-                    disabled={teamState.finalGateCompleted}
+                    } ${team.final_gate_completed ? 'pointer-events-none' : ''}`}
+                    disabled={team.final_gate_completed}
                     onClick={() => setSelectedOption(option.key)}
                     type="button"
                   >
@@ -124,10 +155,10 @@ export const FinalGatePage = () => {
             {feedback ? <p className="mt-4 text-base text-rose-200">{feedback}</p> : null}
 
             <div className="mt-6 space-y-3">
-              <GlowingButton disabled={teamState.finalGateCompleted} onClick={onSubmit}>
-                {teamState.finalGateCompleted ? 'Fourfold Spark Activated' : 'Awaken the Core'}
+              <GlowingButton disabled={team.final_gate_completed || submitting} onClick={onSubmit}>
+                {submitting ? 'Saving...' : team.final_gate_completed ? 'Fourfold Spark Activated' : 'Awaken the Core'}
               </GlowingButton>
-              {teamState.finalGateCompleted ? (
+              {team.final_gate_completed ? (
                 <GlowingButton
                   className="bg-gradient-to-r from-amber-300/90 via-yellow-200/90 to-orange-300/90 shadow-glow-gold"
                   onClick={() => navigate('/reveal')}

@@ -9,15 +9,17 @@ import { ProgressBar } from '../components/ProgressBar';
 import { QuestHeader } from '../components/QuestHeader';
 import { ScoreBadge } from '../components/ScoreBadge';
 import { WorldCard } from '../components/WorldCard';
-import { worldConfigs } from '../data/game-config';
-import { useTeamState } from '../hooks/use-team-state';
-import { clearLastUnlockedWorld, getLastUnlockedWorld, isAllWorldsUnlocked } from '../lib/team-state';
+import { finalGateConfig, getQrParam, getWorldProgress, isAllWorldsUnlocked, worldConfigs } from '../data/gameConfig';
+import { useCurrentTeam } from '../hooks/useCurrentTeam';
+import { useGameSettings } from '../hooks/useGameSettings';
+import { buildAppRouteUrl } from '../lib/clipboard';
+import { updateTeam } from '../services/gameService';
 import { cn } from '../lib/utils';
 
 const pieceStageMap = {
   education: {
-    frame: 'left-[3%] top-[4%] w-[35%] md:left-[7%] md:top-[7%] md:w-[30%]',
-    stream: 'left-[32%] top-[31%] w-[17%] rotate-[31deg] md:left-[36%] md:top-[34%] md:w-[14%]',
+    frame: 'left-[4%] top-[5%] w-[28%] md:left-[7%] md:top-[7%] md:w-[30%]',
+    stream: 'left-[29%] top-[33%] w-[18%] rotate-[31deg] md:left-[36%] md:top-[34%] md:w-[14%]',
     glow: 'shadow-glow-blue',
     border: 'border-sky-300/22',
     badge: 'bg-sky-400/14 text-sky-100',
@@ -25,8 +27,8 @@ const pieceStageMap = {
     quote: 'Every question opens a new world.',
   },
   entrepreneurship: {
-    frame: 'right-[2.5%] top-[4%] w-[36.5%] md:right-[7%] md:top-[7%] md:w-[30%]',
-    stream: 'left-[51%] top-[31%] w-[17%] rotate-[-31deg] md:left-[50%] md:top-[34%] md:w-[14%]',
+    frame: 'right-[4%] top-[5%] w-[28%] md:right-[7%] md:top-[7%] md:w-[30%]',
+    stream: 'left-[53%] top-[33%] w-[18%] rotate-[-31deg] md:left-[50%] md:top-[34%] md:w-[14%]',
     glow: 'shadow-glow-red',
     border: 'border-rose-300/22',
     badge: 'bg-rose-400/14 text-rose-100',
@@ -34,8 +36,8 @@ const pieceStageMap = {
     quote: 'Every challenge hides an opportunity.',
   },
   entertainment: {
-    frame: 'left-[3%] bottom-[4%] w-[35%] md:left-[7%] md:bottom-[7%] md:w-[30%]',
-    stream: 'left-[32%] top-[64%] w-[17%] rotate-[-31deg] md:left-[36%] md:top-[58%] md:w-[14%]',
+    frame: 'left-[4%] bottom-[6%] w-[28%] md:left-[7%] md:bottom-[7%] md:w-[30%]',
+    stream: 'left-[29%] top-[58%] w-[18%] rotate-[-31deg] md:left-[36%] md:top-[58%] md:w-[14%]',
     glow: 'shadow-glow-gold',
     border: 'border-amber-200/24',
     badge: 'bg-amber-300/14 text-amber-100',
@@ -43,8 +45,8 @@ const pieceStageMap = {
     quote: 'Creativity gives light to the human spirit.',
   },
   exploration: {
-    frame: 'right-[3%] bottom-[4%] w-[35%] md:right-[7%] md:bottom-[7%] md:w-[30%]',
-    stream: 'left-[51%] top-[64%] w-[17%] rotate-[31deg] md:left-[50%] md:top-[58%] md:w-[14%]',
+    frame: 'right-[4%] bottom-[6%] w-[28%] md:right-[7%] md:bottom-[7%] md:w-[30%]',
+    stream: 'left-[53%] top-[58%] w-[18%] rotate-[31deg] md:left-[50%] md:top-[58%] md:w-[14%]',
     glow: 'shadow-glow-green',
     border: 'border-emerald-200/24',
     badge: 'bg-emerald-300/14 text-emerald-100',
@@ -53,20 +55,25 @@ const pieceStageMap = {
   },
 } as const;
 
+const getWorldLabel = (title: string) => ({
+  primary: title.replace(' World', ''),
+  secondary: 'World',
+});
+
 export const MapPage = () => {
-  const teamState = useTeamState();
+  const { team, teamId, loading, error } = useCurrentTeam();
+  const { settings } = useGameSettings();
   const [selectedWorldSlug, setSelectedWorldSlug] = useState<(typeof worldConfigs)[number]['slug']>('education');
   const [highlightedWorld, setHighlightedWorld] = useState<(typeof worldConfigs)[number]['slug'] | null>(null);
   const [showUnlockToast, setShowUnlockToast] = useState(false);
 
   useEffect(() => {
-    if (!teamState) return;
-    const lastUnlocked = getLastUnlockedWorld();
+    if (!teamId || !team) return;
+    const lastUnlocked = team.last_unlocked_world as (typeof worldConfigs)[number]['slug'] | null;
     if (!lastUnlocked) return;
 
     const matchingWorld = worldConfigs.find((world) => world.slug === lastUnlocked);
-    if (!matchingWorld || !teamState[matchingWorld.key]) {
-      clearLastUnlockedWorld();
+    if (!matchingWorld || !team[matchingWorld.columnKey]) {
       return;
     }
 
@@ -77,16 +84,41 @@ export const MapPage = () => {
     const timeout = window.setTimeout(() => {
       setHighlightedWorld(null);
       setShowUnlockToast(false);
-      clearLastUnlockedWorld();
+      void updateTeam(teamId, { last_unlocked_world: null });
     }, 2400);
 
     return () => window.clearTimeout(timeout);
-  }, [teamState]);
+  }, [team, teamId]);
 
-  if (!teamState) return <Navigate to="/team-register" replace />;
+  if (!teamId) return <Navigate to="/team-register" replace />;
 
-  const unlockedCount = worldConfigs.filter((world) => teamState[world.key]).length;
-  const canOpenFinalGate = isAllWorldsUnlocked();
+  if (loading) {
+    return (
+      <Layout className="justify-center gap-5 py-5">
+        <section className="glass-panel rounded-[2rem] p-6 text-base text-slate-100/86">
+          Loading your team data...
+        </section>
+      </Layout>
+    );
+  }
+
+  if (error || !team) {
+    return (
+      <Layout className="justify-center gap-5 py-5">
+        <section className="glass-panel rounded-[2rem] p-6">
+          <QuestHeader
+            eyebrow="Living Map Chamber"
+            title="Team data unavailable"
+            subtitle={error ?? 'Register your team again to continue.'}
+          />
+        </section>
+      </Layout>
+    );
+  }
+
+  const { unlockedCount } = getWorldProgress(team);
+  const allWorldsUnlocked = isAllWorldsUnlocked(team);
+  const canOpenFinalGate = allWorldsUnlocked && settings.final_gate_open;
   const selectedWorld =
     worldConfigs.find((world) => world.slug === selectedWorldSlug) ?? worldConfigs[0];
   const selectedPiece = pieceStageMap[selectedWorld.slug];
@@ -101,14 +133,20 @@ export const MapPage = () => {
     () => ({
       title: selectedWorld.title,
       guardian: selectedWorld.guardian,
-      status: teamState[selectedWorld.key] ? 'Restored' : 'Covered by Fog',
-      message: teamState[selectedWorld.key]
+      status: team[selectedWorld.columnKey] ? 'Restored' : 'Covered by Fog',
+      message: team[selectedWorld.columnKey]
         ? selectedWorld.description
         : 'This piece is still sealed. Scan its printed QR to enter the challenge.',
       quote: selectedPiece.quote,
     }),
-    [selectedPiece.quote, selectedWorld, teamState],
+    [selectedPiece.quote, selectedWorld, team],
   );
+
+  const finalGateLabel = !allWorldsUnlocked
+    ? 'Restore 4/4 Worlds to unlock the Final Gate'
+    : settings.final_gate_open
+      ? 'Open Final Gate'
+      : 'Final Gate is closed by the facilitator';
 
   return (
     <Layout className="gap-5 py-5">
@@ -117,15 +155,21 @@ export const MapPage = () => {
           <div>
             <QuestHeader
               eyebrow="Living Map Chamber"
-              title={teamState.teamName}
+              title={team.team_name}
               subtitle="Restore the four worlds, reconnect them to the Core, and prepare the Fourfold Spark."
             />
+            <p className="mt-3 text-sm text-slate-200/76">Hints used: {team.hints_used}</p>
           </div>
-          <ScoreBadge score={teamState.score} />
+          <ScoreBadge score={team.score} />
         </div>
         <div className="mt-5">
           <ProgressBar current={unlockedCount} total={4} />
         </div>
+        {!settings.final_gate_open && allWorldsUnlocked ? (
+          <div className="mt-4 rounded-2xl border border-amber-200/20 bg-amber-200/10 p-4 text-sm text-amber-100">
+            All four worlds are restored, but the Final Gate is still closed by the facilitator.
+          </div>
+        ) : null}
       </section>
 
       <section className="glass-panel overflow-hidden rounded-[2rem] p-3">
@@ -142,7 +186,7 @@ export const MapPage = () => {
           {worldConfigs.map((world) => (
             <EnergyStream
               key={world.slug}
-              active={teamState[world.key]}
+              active={team[world.columnKey]}
               className={pieceStageMap[world.slug].stream}
               color={world.color}
               fromWorld={world.title}
@@ -152,7 +196,7 @@ export const MapPage = () => {
           <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
             <CoreVisual
               boosted={Boolean(highlightedWorld)}
-              className="h-28 w-28 md:h-40 md:w-40"
+              className="h-20 w-20 sm:h-24 sm:w-24 md:h-40 md:w-40"
               showReadyText={false}
               unlockedCount={unlockedCount}
             />
@@ -160,17 +204,18 @@ export const MapPage = () => {
 
           {worldConfigs.map((world, index) => {
             const piece = pieceStageMap[world.slug];
-            const unlocked = teamState[world.key];
+            const unlocked = team[world.columnKey];
             const selected = selectedWorldSlug === world.slug;
             const highlighted = highlightedWorld === world.slug;
             const pieceSrc = `${import.meta.env.BASE_URL}assets/${piece.image}`;
+            const label = getWorldLabel(world.title);
 
             return (
               <button
                 key={world.slug}
                 className={cn(
                   'group absolute z-10 overflow-hidden rounded-[1.75rem] border bg-slate-950/70 text-left backdrop-blur-sm transition duration-500',
-                  'aspect-[4/5] animate-float',
+                  'aspect-[1/1.08] animate-float md:aspect-[4/5]',
                   piece.frame,
                   unlocked ? [piece.border, piece.glow] : 'border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.28)]',
                   selected && 'scale-[1.03]',
@@ -199,7 +244,7 @@ export const MapPage = () => {
                 <div className="absolute right-3 top-3 z-10 md:right-4 md:top-4">
                   <span
                     className={cn(
-                      'rounded-full border px-2.5 py-1 text-[0.58rem] font-medium uppercase tracking-[0.18em] shadow-[0_10px_30px_rgba(0,0,0,0.18)] md:text-[0.68rem]',
+                      'rounded-full border px-2 py-1 text-[0.5rem] font-medium uppercase tracking-[0.16em] shadow-[0_10px_30px_rgba(0,0,0,0.18)] md:px-2.5 md:text-[0.68rem]',
                       unlocked
                         ? [piece.border, piece.badge]
                         : 'border-white/10 bg-slate-900/82 text-slate-200/92',
@@ -210,22 +255,21 @@ export const MapPage = () => {
                 </div>
 
                 <div className="absolute inset-x-0 bottom-0 z-10 p-3 md:p-4">
-                  <div className="rounded-2xl border border-white/10 bg-slate-950/72 p-3 backdrop-blur-md">
-                    <div className="flex items-start gap-2">
-                      <div>
-                        <p className="text-[0.62rem] uppercase tracking-[0.22em] text-slate-300/72 md:text-[0.7rem]">
-                          {world.guardian}
-                        </p>
-                        <h3
-                          className={cn(
-                            'mt-1 text-[0.86rem] font-semibold leading-4 text-white md:text-base md:leading-5',
-                            world.slug === 'entrepreneurship' ? 'text-[0.72rem] md:text-[0.95rem]' : '',
-                          )}
-                        >
-                          {world.title}
-                        </h3>
-                      </div>
-                    </div>
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/72 px-2.5 py-2.5 text-center backdrop-blur-md md:px-3 md:py-3 md:text-left">
+                    <p className="hidden text-[0.62rem] uppercase tracking-[0.22em] text-slate-300/72 md:block md:text-[0.7rem]">
+                      {world.guardian}
+                    </p>
+                    <h3 className="font-semibold leading-[1.06] text-white">
+                      <span
+                        className={cn(
+                          'block text-[0.58rem] md:mt-1 md:text-[0.96rem]',
+                          world.slug === 'entrepreneurship' && 'text-[0.5rem] md:text-[0.86rem] tracking-[-0.01em]',
+                        )}
+                      >
+                        {label.primary}
+                      </span>
+                      <span className="mt-1 block text-[0.58rem] md:text-[0.9rem]">{label.secondary}</span>
+                    </h3>
                   </div>
                 </div>
               </button>
@@ -268,8 +312,12 @@ export const MapPage = () => {
               {markerDetails.quote}
             </p>
 
-            {canOpenFinalGate ? (
-              <p className="mt-4 text-sm text-amber-100/86">The Core is ready for the Fourfold Spark.</p>
+            {allWorldsUnlocked ? (
+              <p className="mt-4 text-sm text-amber-100/86">
+                {settings.final_gate_open
+                  ? 'The Core is ready for the Fourfold Spark.'
+                  : 'The Core is ready, but the facilitator still controls access to the Final Gate.'}
+              </p>
             ) : (
               <p className="mt-4 text-sm text-slate-300/76">Tap any piece to inspect it, then scan its printed QR to begin.</p>
             )}
@@ -288,14 +336,22 @@ export const MapPage = () => {
             lockedLabel={world.lockedLabel}
             onInspect={() => setSelectedWorldSlug(world.slug)}
             title={world.title}
-            unlocked={teamState[world.key]}
+            unlocked={team[world.columnKey]}
           />
         ))}
       </section>
 
       <section className="glass-panel rounded-3xl p-4">
-        <GlowingButton disabled onClick={() => undefined}>
-          {canOpenFinalGate ? 'The Core is ready. Scan the Final Gate QR.' : 'Restore 4/4 Worlds, then scan the Final Gate QR.'}
+        <GlowingButton
+          disabled={!canOpenFinalGate}
+          onClick={() => {
+            if (!canOpenFinalGate) return;
+            window.location.assign(
+              buildAppRouteUrl(`/final-gate?qr=${getQrParam(finalGateConfig.qrKey)}`),
+            );
+          }}
+        >
+          {finalGateLabel}
         </GlowingButton>
       </section>
     </Layout>

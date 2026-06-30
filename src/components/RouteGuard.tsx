@@ -1,7 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
-import { getTeamState } from '../lib/team-state';
+import { getCurrentTeamId } from '../lib/teamSession';
 
 export const RouteGuard = () => {
-  const team = getTeamState();
-  return team ? <Outlet /> : <Navigate to="/team-register" replace />;
+  const teamId = getCurrentTeamId();
+  return teamId ? <Outlet /> : <Navigate to="/team-register" replace />;
 };

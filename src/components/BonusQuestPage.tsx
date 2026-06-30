@@ -1,6 +1,8 @@
 import { FormEvent, ReactNode, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getTeamState, saveTeamState } from '../lib/team-state';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { useCurrentTeam } from '../hooks/useCurrentTeam';
+import { useTeamCompletions } from '../hooks/useTeamCompletions';
+import { completeItem, logTeamEvent } from '../services/gameService';
 import { CodeInput } from './CodeInput';
 import { GlowingButton } from './GlowingButton';
 import { Layout } from './Layout';
@@ -32,7 +34,8 @@ export const BonusQuestPage = ({
   successMessage,
 }: BonusQuestPageProps) => {
   const navigate = useNavigate();
-  const teamState = getTeamState();
+  const { team, teamId, loading, error, refreshTeam } = useCurrentTeam();
+  const { completions, refreshCompletions } = useTeamCompletions(teamId);
 
   const initialAnswers = useMemo(
     () => Object.fromEntries(answerFields.map((field) => [field.id, ''])) as Record<string, string>,
@@ -42,15 +45,41 @@ export const BonusQuestPage = ({
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(Boolean(teamState?.bonusCompleted.includes(id)));
+  const [submitting, setSubmitting] = useState(false);
 
-  if (!teamState) return null;
+  const isCompleted = completions.some(
+    (completion) => completion.item_type === 'bonus' && completion.item_id === id,
+  );
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  if (!teamId) return <Navigate to="/team-register" replace />;
+
+  if (loading) {
+    return (
+      <Layout className="justify-center gap-5 py-5">
+        <section className="glass-panel rounded-[2rem] p-6 text-base text-slate-100/86">
+          Loading your team data...
+        </section>
+      </Layout>
+    );
+  }
+
+  if (error || !team) {
+    return (
+      <Layout className="justify-center gap-5 py-5">
+        <section className="glass-panel rounded-[2rem] p-6">
+          <QuestHeader eyebrow="Bonus Quest" title={title} subtitle={error ?? 'Team session was not found.'} />
+          <div className="mt-6">
+            <GlowingButton onClick={() => navigate('/team-register')}>
+              Go to Team Register
+            </GlowingButton>
+          </div>
+        </section>
+      </Layout>
+    );
+  }
+
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    const latestState = getTeamState();
-    if (!latestState) return;
 
     const hasBlankField = answerFields.some((field) => !answers[field.id]?.trim());
     if (hasBlankField) {
@@ -58,18 +87,27 @@ export const BonusQuestPage = ({
       return;
     }
 
-    if (!latestState.bonusCompleted.includes(id)) {
-      const nextState = {
-        ...latestState,
-        bonusCompleted: [...latestState.bonusCompleted, id],
-        score: latestState.score + 2,
-      };
-      saveTeamState(nextState);
-    }
+    setSubmitting(true);
 
-    setIsCompleted(true);
-    setFeedback(null);
-    setShowSuccessModal(true);
+    try {
+      const result = await completeItem(team.id, 'bonus', id, 2);
+      if (result.alreadyCompleted) {
+        setFeedback('Already completed.');
+      } else {
+        await logTeamEvent(team.id, 'bonus_completed', title, 2, { bonusId: id });
+      }
+      await Promise.all([refreshTeam(), refreshCompletions()]);
+      setFeedback(null);
+      setShowSuccessModal(true);
+    } catch (nextError) {
+      setFeedback(
+        nextError instanceof Error
+          ? nextError.message
+          : 'Connection issue. Please try again or contact the facilitator.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -81,7 +119,7 @@ export const BonusQuestPage = ({
             title={title}
             subtitle="Optional side quest. Completing it adds +2 score once."
           />
-          <ScoreBadge score={getTeamState()?.score ?? teamState.score} />
+          <ScoreBadge score={team.score} />
         </div>
       </section>
 
@@ -100,6 +138,7 @@ export const BonusQuestPage = ({
                 {field.type === 'text' ? (
                   <CodeInput
                     className="focus:border-amber-200/50 focus:ring-amber-200/25"
+                    disabled={submitting}
                     placeholder={field.placeholder}
                     value={answers[field.id]}
                     onChange={(event) =>
@@ -109,6 +148,7 @@ export const BonusQuestPage = ({
                 ) : (
                   <TextareaPrompt
                     className="min-h-28 focus:border-amber-200/50 focus:ring-amber-200/25"
+                    disabled={submitting}
                     placeholder={field.placeholder}
                     value={answers[field.id]}
                     onChange={(event) =>
@@ -125,9 +165,10 @@ export const BonusQuestPage = ({
           <div className="mt-6 space-y-3">
             <GlowingButton
               className="bg-gradient-to-r from-amber-300/90 via-yellow-200/90 to-orange-300/90 shadow-glow-gold"
+              disabled={submitting}
               type="submit"
             >
-              Complete Bonus Quest
+              {submitting ? 'Saving...' : 'Complete Bonus Quest'}
             </GlowingButton>
             <GlowingButton
               className="bg-gradient-to-r from-slate-100 to-slate-300 text-slate-950"

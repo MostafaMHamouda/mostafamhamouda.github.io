@@ -1,6 +1,8 @@
 import { FormEvent, ReactNode, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getTeamState, saveTeamState } from '../lib/team-state';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { useCurrentTeam } from '../hooks/useCurrentTeam';
+import { useTeamCompletions } from '../hooks/useTeamCompletions';
+import { completeItem, logTeamEvent } from '../services/gameService';
 import { cn } from '../lib/utils';
 import { CodeInput } from './CodeInput';
 import { GlowingButton } from './GlowingButton';
@@ -45,7 +47,8 @@ export const FogTrapPage = ({
   successMessage = 'The trap is recorded. Take the clue and return to the map.',
 }: FogTrapPageProps) => {
   const navigate = useNavigate();
-  const teamState = getTeamState();
+  const { team, teamId, loading, error, refreshTeam } = useCurrentTeam();
+  const { completions, refreshCompletions } = useTeamCompletions(teamId);
 
   const initialAnswers = useMemo(
     () => Object.fromEntries(answerFields.map((field) => [field.id, ''])) as Record<string, string>,
@@ -55,15 +58,41 @@ export const FogTrapPage = ({
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(Boolean(teamState?.fogCompleted.includes(id)));
+  const [submitting, setSubmitting] = useState(false);
 
-  if (!teamState) return null;
+  const isCompleted = completions.some(
+    (completion) => completion.item_type === 'fog_trap' && completion.item_id === id,
+  );
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  if (!teamId) return <Navigate to="/team-register" replace />;
+
+  if (loading) {
+    return (
+      <Layout className="justify-center gap-5 py-5">
+        <section className="glass-panel rounded-[2rem] p-6 text-base text-slate-100/86">
+          Loading your team data...
+        </section>
+      </Layout>
+    );
+  }
+
+  if (error || !team) {
+    return (
+      <Layout className="justify-center gap-5 py-5">
+        <section className="glass-panel rounded-[2rem] p-6">
+          <QuestHeader eyebrow="Fog Trap" title={title} subtitle={error ?? 'Team session was not found.'} />
+          <div className="mt-6">
+            <GlowingButton onClick={() => navigate('/team-register')}>
+              Go to Team Register
+            </GlowingButton>
+          </div>
+        </section>
+      </Layout>
+    );
+  }
+
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    const latestState = getTeamState();
-    if (!latestState) return;
 
     const hasBlankField = answerFields.some((field) => !answers[field.id]?.trim());
     if (hasBlankField) {
@@ -79,18 +108,30 @@ export const FogTrapPage = ({
       }
     }
 
-    if (!latestState.fogCompleted.includes(id)) {
-      const nextState = {
-        ...latestState,
-        fogCompleted: [...latestState.fogCompleted, id],
-        score: latestState.score + Math.max(0, scoreOnCompletion),
-      };
-      saveTeamState(nextState);
-    }
+    setSubmitting(true);
 
-    setIsCompleted(true);
-    setFeedback(null);
-    setShowSuccessModal(true);
+    try {
+      const result = await completeItem(team.id, 'fog_trap', id, Math.max(0, scoreOnCompletion));
+      if (result.alreadyCompleted) {
+        setFeedback('Already completed.');
+      } else {
+        await logTeamEvent(team.id, 'fog_completed', title, Math.max(0, scoreOnCompletion), {
+          fogTrapId: id,
+        });
+      }
+
+      await Promise.all([refreshTeam(), refreshCompletions()]);
+      setFeedback(null);
+      setShowSuccessModal(true);
+    } catch (nextError) {
+      setFeedback(
+        nextError instanceof Error
+          ? nextError.message
+          : 'Connection issue. Please try again or contact the facilitator.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -98,7 +139,7 @@ export const FogTrapPage = ({
       <section className="glass-panel rounded-[2rem] border border-slate-200/10 bg-gradient-to-br from-slate-300/10 via-slate-700/8 to-slate-900/25 p-5 shadow-[0_20px_60px_rgba(10,12,20,0.55)]">
         <div className="flex items-start justify-between gap-3">
           <QuestHeader eyebrow="Fog Trap" title={title} subtitle={fogMessage} />
-          <ScoreBadge score={getTeamState()?.score ?? teamState.score} />
+          <ScoreBadge score={team.score} />
         </div>
       </section>
 
@@ -117,6 +158,7 @@ export const FogTrapPage = ({
                 {field.type === 'text' ? (
                   <CodeInput
                     className={cn('focus:border-slate-300/50 focus:ring-slate-300/25')}
+                    disabled={submitting}
                     placeholder={field.placeholder}
                     value={answers[field.id]}
                     onChange={(event) =>
@@ -126,6 +168,7 @@ export const FogTrapPage = ({
                 ) : (
                   <TextareaPrompt
                     className={cn('min-h-28 focus:border-slate-300/50 focus:ring-slate-300/25')}
+                    disabled={submitting}
                     placeholder={field.placeholder}
                     value={answers[field.id]}
                     onChange={(event) =>
@@ -142,9 +185,10 @@ export const FogTrapPage = ({
           <div className="mt-6 space-y-3">
             <GlowingButton
               className="bg-gradient-to-r from-slate-200/90 via-slate-300/90 to-slate-400/90 text-slate-950 shadow-[0_0_24px_rgba(203,213,225,0.25)]"
+              disabled={submitting}
               type="submit"
             >
-              Dispel the Trap
+              {submitting ? 'Saving...' : 'Dispel the Trap'}
             </GlowingButton>
             <GlowingButton
               className="bg-gradient-to-r from-slate-100 to-slate-300 text-slate-950"

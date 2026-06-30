@@ -1,7 +1,9 @@
 import { createBrowserRouter, createHashRouter, Navigate } from 'react-router-dom';
+import { GameStateGate } from './components/GameStateGate';
 import { QrAccessGuard } from './components/QrAccessGuard';
 import { RouteGuard } from './components/RouteGuard';
 import { AdminPage } from './pages/AdminPage';
+import { AdminLivePage } from './pages/AdminLivePage';
 import { BonusAntiDimnessOathPage } from './pages/BonusAntiDimnessOathPage';
 import { BonusBadgeConstellationPage } from './pages/BonusBadgeConstellationPage';
 import { BonusPrototypeFlamePage } from './pages/BonusPrototypeFlamePage';
@@ -32,20 +34,38 @@ const routes = [
   },
   {
     path: '/team-register',
-    element: <TeamRegisterPage />,
+    element: (
+      <GameStateGate mode="register">
+        <TeamRegisterPage />
+      </GameStateGate>
+    ),
+  },
+  {
+    path: '/admin',
+    element: <AdminPage />,
+  },
+  {
+    path: '/admin/live',
+    element: <AdminLivePage />,
   },
   {
     element: <RouteGuard />,
     children: [
       {
         path: '/map',
-        element: <MapPage />,
+        element: (
+          <GameStateGate mode="play">
+            <MapPage />
+          </GameStateGate>
+        ),
       },
       {
         path: '/education/mirror-of-misunderstanding',
         element: (
           <QrAccessGuard qrKey="educationMirror" title="Education World QR Required">
-            <EducationChallengePage />
+            <GameStateGate mode="play">
+              <EducationChallengePage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -53,7 +73,9 @@ const routes = [
         path: '/entrepreneurship/market-of-needs',
         element: (
           <QrAccessGuard qrKey="entrepreneurshipMarket" title="Entrepreneurship World QR Required">
-            <EntrepreneurshipChallengePage />
+            <GameStateGate mode="play">
+              <EntrepreneurshipChallengePage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -61,7 +83,9 @@ const routes = [
         path: '/entertainment/story-loom',
         element: (
           <QrAccessGuard qrKey="entertainmentStory" title="Entertainment World QR Required">
-            <EntertainmentChallengePage />
+            <GameStateGate mode="play">
+              <EntertainmentChallengePage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -69,7 +93,9 @@ const routes = [
         path: '/exploration/listening-compass',
         element: (
           <QrAccessGuard qrKey="explorationCompass" title="Exploration World QR Required">
-            <ExplorationChallengePage />
+            <GameStateGate mode="play">
+              <ExplorationChallengePage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -77,7 +103,9 @@ const routes = [
         path: '/fog/perfect-answer',
         element: (
           <QrAccessGuard qrKey="fogPerfect" title="Fog Trap QR Required">
-            <FogPerfectAnswerPage />
+            <GameStateGate mode="play">
+              <FogPerfectAnswerPage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -85,7 +113,9 @@ const routes = [
         path: '/fog/shiny-idea',
         element: (
           <QrAccessGuard qrKey="fogShiny" title="Fog Trap QR Required">
-            <FogShinyIdeaPage />
+            <GameStateGate mode="play">
+              <FogShinyIdeaPage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -93,7 +123,9 @@ const routes = [
         path: '/fog/empty-performance',
         element: (
           <QrAccessGuard qrKey="fogEmpty" title="Fog Trap QR Required">
-            <FogEmptyPerformancePage />
+            <GameStateGate mode="play">
+              <FogEmptyPerformancePage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -101,7 +133,9 @@ const routes = [
         path: '/fog/rush-path',
         element: (
           <QrAccessGuard qrKey="fogRush" title="Fog Trap QR Required">
-            <FogRushPathPage />
+            <GameStateGate mode="play">
+              <FogRushPathPage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -109,7 +143,9 @@ const routes = [
         path: '/fog/lone-hero',
         element: (
           <QrAccessGuard qrKey="fogLone" title="Fog Trap QR Required">
-            <FogLoneHeroPage />
+            <GameStateGate mode="play">
+              <FogLoneHeroPage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -117,7 +153,9 @@ const routes = [
         path: '/bonus/badge-constellation',
         element: (
           <QrAccessGuard qrKey="bonusBadges" title="Bonus Quest QR Required">
-            <BonusBadgeConstellationPage />
+            <GameStateGate mode="play">
+              <BonusBadgeConstellationPage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -125,7 +163,9 @@ const routes = [
         path: '/bonus/wonder-log',
         element: (
           <QrAccessGuard qrKey="bonusWonder" title="Bonus Quest QR Required">
-            <BonusWonderLogPage />
+            <GameStateGate mode="play">
+              <BonusWonderLogPage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -133,7 +173,9 @@ const routes = [
         path: '/bonus/prototype-flame',
         element: (
           <QrAccessGuard qrKey="bonusPrototype" title="Bonus Quest QR Required">
-            <BonusPrototypeFlamePage />
+            <GameStateGate mode="play">
+              <BonusPrototypeFlamePage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -141,7 +183,9 @@ const routes = [
         path: '/bonus/anti-dimness-oath',
         element: (
           <QrAccessGuard qrKey="bonusOath" title="Bonus Quest QR Required">
-            <BonusAntiDimnessOathPage />
+            <GameStateGate mode="play">
+              <BonusAntiDimnessOathPage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
@@ -149,17 +193,19 @@ const routes = [
         path: '/final-gate',
         element: (
           <QrAccessGuard qrKey="finalGate" title="Final Gate QR Required">
-            <FinalGatePage />
+            <GameStateGate mode="final-gate">
+              <FinalGatePage />
+            </GameStateGate>
           </QrAccessGuard>
         ),
       },
       {
         path: '/reveal',
-        element: <RevealPage />,
-      },
-      {
-        path: '/admin',
-        element: <AdminPage />,
+        element: (
+          <GameStateGate mode="play">
+            <RevealPage />
+          </GameStateGate>
+        ),
       },
     ],
   },

@@ -1,11 +1,15 @@
+import { useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { CoreVisual } from '../components/CoreVisual';
 import { EnergyStream } from '../components/EnergyStream';
 import { GlowingButton } from '../components/GlowingButton';
 import { Layout } from '../components/Layout';
 import { QuestHeader } from '../components/QuestHeader';
-import { worldConfigs } from '../data/game-config';
-import { getTeamState, resetTeamState } from '../lib/team-state';
+import { worldConfigs } from '../data/gameConfig';
+import { useCurrentTeam } from '../hooks/useCurrentTeam';
+import { useTeamCompletions } from '../hooks/useTeamCompletions';
+import { clearCurrentTeamId } from '../lib/teamSession';
+import { completeReveal, logTeamEvent } from '../services/gameService';
 import { cn } from '../lib/utils';
 
 const bonusLabels: Record<string, string> = {
@@ -36,15 +40,54 @@ const revealPieces = {
   },
 } as const;
 
+const getRevealLabel = (title: string) => ({
+  primary: title.replace(' World', ''),
+  secondary: 'World',
+});
+
 export const RevealPage = () => {
   const navigate = useNavigate();
-  const teamState = getTeamState();
+  const { team, teamId, loading, error, refreshTeam } = useCurrentTeam();
+  const { completions } = useTeamCompletions(teamId);
 
-  if (!teamState) return null;
-  if (!teamState.finalGateCompleted) return <Navigate to="/final-gate" replace />;
+  useEffect(() => {
+    if (!team || team.reveal_completed) return;
 
-  const worlds = worldConfigs.filter((world) => teamState[world.key]);
-  const bonuses = teamState.bonusCompleted.map((id) => bonusLabels[id] ?? id);
+    void (async () => {
+      await completeReveal(team.id);
+      await logTeamEvent(team.id, 'game_completed', 'The Living Map was restored');
+      await refreshTeam();
+    })();
+  }, [refreshTeam, team]);
+
+  if (!teamId) return <Navigate to="/team-register" replace />;
+
+  if (loading) {
+    return (
+      <Layout className="justify-center gap-5 py-5">
+        <section className="glass-panel rounded-[2rem] p-6 text-base text-slate-100/86">
+          Loading your team data...
+        </section>
+      </Layout>
+    );
+  }
+
+  if (error || !team) {
+    return (
+      <Layout className="justify-center gap-5 py-5">
+        <section className="glass-panel rounded-[2rem] p-6">
+          <QuestHeader eyebrow="Reveal" title="Team data unavailable" subtitle={error ?? 'Team session was not found.'} />
+        </section>
+      </Layout>
+    );
+  }
+
+  if (!team.final_gate_completed) return <Navigate to="/final-gate" replace />;
+
+  const worlds = worldConfigs.filter((world) => team[world.columnKey]);
+  const bonuses = completions
+    .filter((completion) => completion.item_type === 'bonus')
+    .map((completion) => bonusLabels[completion.item_id] ?? completion.item_id);
 
   return (
     <Layout className="justify-center gap-5 py-5">
@@ -74,7 +117,7 @@ export const RevealPage = () => {
 
           <div className="relative mx-auto mt-8 flex h-80 w-full max-w-md items-center justify-center">
             {worldConfigs.map((world, index) => {
-              const primaryTitle = world.title.replace(' World', '');
+              const label = getRevealLabel(world.title);
 
               return (
                 <div
@@ -90,23 +133,16 @@ export const RevealPage = () => {
                     src={`${import.meta.env.BASE_URL}assets/${revealPieces[world.slug].src}`}
                   />
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,7,15,0.04),rgba(5,7,15,0.38)_55%,rgba(5,7,15,0.86)_100%)]" />
-                  <div className="absolute inset-x-0 bottom-0 z-10 px-2 py-2 text-center text-[0.68rem] font-medium leading-3">
+                  <div className="absolute inset-x-0 bottom-0 z-10 px-2 py-2 text-center font-medium leading-[1.05]">
                     <span
                       className={cn(
-                        'block',
-                        world.slug === 'entrepreneurship' && 'text-[0.62rem] tracking-[-0.02em]',
+                        'block text-[0.66rem]',
+                        world.slug === 'entrepreneurship' && 'text-[0.58rem] tracking-[-0.02em]',
                       )}
                     >
-                      {primaryTitle}
+                      {label.primary}
                     </span>
-                    <span
-                      className={cn(
-                        'mt-1 block',
-                        world.slug === 'entrepreneurship' && 'text-[0.62rem]',
-                      )}
-                    >
-                      World
-                    </span>
+                    <span className="mt-1 block text-[0.62rem]">{label.secondary}</span>
                   </div>
                 </div>
               );
@@ -130,7 +166,7 @@ export const RevealPage = () => {
               Welcome to Learnova - Where Questions Become Doors, Stories Become Bridges, Ideas Become Courage, and Exploration Becomes Growth.
             </p>
             <p className="text-base leading-8 text-slate-100/88" dir="rtl">
-              أهلًا بكم في Learnova - حيث تتحول الأسئلة إلى أبواب، والقصص إلى جسور، والأفكار إلى شجاعة، والاستكشاف إلى نمو.
+              أهلًا بكم في Learnova — حيث تتحول الأسئلة إلى أبواب، والقصص إلى جسور، والأفكار إلى شجاعة، والاستكشاف إلى نمو.
             </p>
           </div>
         </div>
@@ -140,8 +176,8 @@ export const RevealPage = () => {
         <div className="glass-panel rounded-[2rem] p-5">
           <h2 className="text-lg font-semibold text-sky-100">Quest Summary</h2>
           <div className="mt-4 space-y-3 text-base text-slate-100/86">
-            <p>Team: {teamState.teamName}</p>
-            <p>Final score: {teamState.score}</p>
+            <p>Team: {team.team_name}</p>
+            <p>Final score: {team.score}</p>
             <p>Completed worlds: {worlds.length}/4</p>
             <p>Completed bonuses: {bonuses.length}</p>
           </div>
@@ -185,7 +221,7 @@ export const RevealPage = () => {
         <GlowingButton
           className="bg-gradient-to-r from-rose-400 to-orange-300"
           onClick={() => {
-            resetTeamState();
+            clearCurrentTeamId();
             navigate('/team-register', { replace: true });
           }}
         >

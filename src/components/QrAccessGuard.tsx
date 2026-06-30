@@ -1,7 +1,7 @@
 import { PropsWithChildren } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { qrAccessCodes, type QrAccessKey } from '../data/qr-access';
-import { getTeamState } from '../lib/team-state';
+import { getCurrentTeamId } from '../lib/teamSession';
 import { GlowingButton } from './GlowingButton';
 import { Layout } from './Layout';
 import { QuestHeader } from './QuestHeader';
@@ -16,9 +16,9 @@ const normalize = (value: string | null) => (value ?? '').trim().toLowerCase();
 export const QrAccessGuard = ({ children, qrKey, title }: QrAccessGuardProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const teamState = getTeamState();
+  const teamId = getCurrentTeamId();
 
-  if (!teamState) {
+  if (!teamId) {
     return <Navigate to="/team-register" replace />;
   }
 
@@ -36,8 +36,7 @@ export const QrAccessGuard = ({ children, qrKey, title }: QrAccessGuardProps) =>
             subtitle="This stage opens only from its printed QR code."
           />
           <div className="mt-6 rounded-2xl border border-amber-200/15 bg-amber-200/10 p-4 text-base leading-7 text-slate-100/86">
-            امسح رمز QR الخاص بهذه المرحلة للدخول. شاشة الخريطة مخصصة للمتابعة فقط، والدخول إلى هذا
-            التحدي يتم من الرمز الخاص به.
+            Scan the printed QR code for this stage to enter. The map tracks progress only. Entry to this challenge must come from its QR route.
           </div>
           <div className="mt-6">
             <GlowingButton
